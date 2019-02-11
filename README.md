@@ -28,3 +28,7 @@ player.pause();
 player.stop();
 player.mute();
 ```
+
+## Note
+
+This package has not been tested on iOS yet. Any help is appreciated.

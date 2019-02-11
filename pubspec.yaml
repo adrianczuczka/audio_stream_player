@@ -1,8 +1,8 @@
 name: audio_stream_player
 description: A Flutter audio player specifically intended for live streaming.
 version: 0.0.1
-author:
-homepage:
+author: Adrian Czuczka <adrianczuczka@gmail.com>
+homepage: https://www.github.com/adrianczuczka
 
 environment:
   sdk: ">=2.0.0-dev.68.0 <3.0.0"
