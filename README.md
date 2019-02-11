@@ -1,10 +1,30 @@
-# audio_stream_player
+# AudioStreamPlayer
 
-A Flutter audio player specifically intended for live streaming.
+A Flutter audio player specifically intended for live streaming. Can play, pause, and stop livestreams, as well as being able to mute itself.
 
-## Getting Started
+## Usage
 
-For help getting started with Flutter, view our online
-[documentation](https://flutter.io/).
+Adding the dependency:
+```
+dependencies:
+    flutter:
+      sdk: flutter
+    audio_stream_player:
+```
 
-For help on editing plugin code, view the [documentation](https://flutter.io/developing-packages/#edit-plugin-package).
+Creating an audio stream player:
+
+```
+import 'package:audio_stream_player/audio_stream_player.dart';
+```
+```
+AudioStreamPlayer player = AudioStreamPlayer();
+```
+
+Functions:
+```
+player.play("url");
+player.pause();
+player.stop();
+player.mute();
+```
