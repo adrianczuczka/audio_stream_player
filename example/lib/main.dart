@@ -12,32 +12,12 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
+  AudioStreamPlayer player = AudioStreamPlayer();
+  bool isPlaying = false;
 
   @override
   void initState() {
     super.initState();
-    initPlatformState();
-  }
-
-  // Platform messages are asynchronous, so we initialize in an async method.
-  Future<void> initPlatformState() async {
-    String platformVersion;
-    // Platform messages may fail, so we use a try/catch PlatformException.
-    try {
-      platformVersion = await AudioStreamPlayer.platformVersion;
-    } on PlatformException {
-      platformVersion = 'Failed to get platform version.';
-    }
-
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
-
-    setState(() {
-      _platformVersion = platformVersion;
-    });
   }
 
   @override
@@ -47,10 +27,70 @@ class _MyAppState extends State<MyApp> {
         appBar: new AppBar(
           title: const Text('Plugin example app'),
         ),
-        body: new Center(
-          child: new Text('Running on: $_platformVersion\n'),
+        body: Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: <Widget>[
+              IconButton(
+                icon: Icon(Icons.fiber_manual_record),
+                onPressed: () {
+                  reset();
+                },
+                color: Colors.red,
+                iconSize: 60.0,
+              ),
+              IconButton(
+                icon: Icon(isPlaying
+                    ? Icons.pause_circle_filled
+                    : Icons.play_circle_filled),
+                onPressed: () {
+                  isPlaying ? pause() : play();
+                },
+                iconSize: 100.0,
+              ),
+              IconButton(
+                icon: Icon(Icons.stop),
+                onPressed: () {
+                  player.stop();
+                },
+                iconSize: 60.0,
+              )
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  void play() {
+    player.play("http://radio.freshair.org.uk/radio");
+    setState(() {
+      isPlaying = true;
+    });
+  }
+
+  void pause() {
+    player.pause();
+    setState(() {
+      isPlaying = false;
+    });
+  }
+
+  void stop() {
+    player.stop();
+    setState(() {
+      isPlaying = false;
+    });
+  }
+
+  void reset() {
+    stop();
+    play();
+  }
+
+  @override
+  void dispose() {
+    player.stop();
+    super.dispose();
   }
 }
