@@ -1,5 +1,7 @@
 # audio_stream_player
 
+[![pub package](https://img.shields.io/pub/v/audio_stream_player.svg)](https://pub.dev/packages/audio_stream_player)
+
 A low-latency raw PCM streaming player for Flutter. Feed audio byte chunks
 from a TTS or realtime voice API and hear them as they arrive — no files, no
 URLs, no waiting for the full response.
