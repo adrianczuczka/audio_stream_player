@@ -1,8 +1,13 @@
-# audio_stream_player_example
+# audio_stream_player example
 
-Demonstrates how to use the audio_stream_player plugin.
+Simulates a streaming TTS API end-to-end: synthesizes a robot-voice
+utterance and feeds it to `AudioStreamPlayer` in ~100ms chunks with
+network-like jitter, including occasional hiccups that demonstrate underrun
+recovery.
 
-## Getting Started
+```sh
+flutter run
+```
 
-For help getting started with Flutter, view our online
-[documentation](https://flutter.io/).
+Watch the buffer gauge fill as chunks arrive and drain as they play; the
+log shows state transitions, underruns, and the `endOfStream()` drain.
