@@ -20,9 +20,12 @@ await player.endOfStream(); // completes when the last sample has played
 ## Why this package
 
 General-purpose players (`just_audio`, `audioplayers`) are built around URLs
-and files; wiring a live byte stream into them is awkward. This package does
-one thing: gapless playback of PCM chunks as they arrive, with the lifecycle
-hooks a streaming voice app actually needs:
+and files; wiring a live byte stream into them is awkward. `flutter_pcm_sound`
+and `flutter_sound` can play PCM streams — the former through a feed-me
+callback (s16 only, one global player), the latter as part of a full
+recorder/player suite. This package does one thing: gapless playback of PCM
+chunks as they arrive, with the lifecycle hooks a streaming voice app
+actually needs:
 
 - **Any stream rate** — feed 22.05/24/44.1 kHz mono straight from the API;
   resampling to the hardware rate is native.
