@@ -1,9 +1,9 @@
 name: audio_stream_player
 description: >-
   Low-latency PCM audio streaming player. Feed raw audio chunks from TTS or
-  realtime voice APIs and hear them as they arrive, with buffer introspection,
-  underrun events, and drain completion.
-version: 1.0.0
+  realtime voice APIs and hear them as they arrive, with buffer introspection
+  and underrun events.
+version: 1.0.1
 repository: https://github.com/adrianczuczka/audio_stream_player
 issue_tracker: https://github.com/adrianczuczka/audio_stream_player/issues
 topics:

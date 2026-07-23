@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Shortened the package description to meet pub.dev's 180-character limit.
+- No functional changes.
+
 ## 1.0.0
 
 Complete rewrite. `audio_stream_player` is now a low-latency raw PCM
