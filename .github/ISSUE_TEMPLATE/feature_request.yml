@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest an improvement or new capability.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the use case, not just the feature — there may be a better way to support it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like the API to look like?
+    validations:
+      required: false
+
+  - type: input
+    id: platforms
+    attributes:
+      label: Platform(s) this applies to
+      placeholder: e.g. all, Android only, iOS/macOS
+    validations:
+      required: false

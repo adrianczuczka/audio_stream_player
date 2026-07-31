@@ -1,0 +1,95 @@
+name: Bug report
+description: Something isn't working — playback glitches, crashes, no audio, etc.
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: platforms
+    attributes:
+      label: Affected platform(s)
+      options:
+        - label: Android
+        - label: iOS
+        - label: macOS
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device / OS version
+      placeholder: e.g. Pixel 8 (Android 15), iPhone 15 (iOS 18.2), MacBook Air M2 (macOS 15)
+    validations:
+      required: true
+
+  - type: input
+    id: package-version
+    attributes:
+      label: audio_stream_player version
+      placeholder: e.g. 1.0.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: flutter-version
+    attributes:
+      label: Flutter version
+      description: Paste the output of `flutter --version`.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: pcm-config
+    attributes:
+      label: PCM configuration
+      description: The sample rate, channel count, and format you initialize the player with.
+      placeholder: e.g. 24000 Hz, 1 channel, PcmFormat.s16le
+    validations:
+      required: true
+
+  - type: input
+    id: audio-source
+    attributes:
+      label: Audio source
+      placeholder: e.g. OpenAI Realtime API, ElevenLabs streaming TTS, local file chunks
+    validations:
+      required: false
+
+  - type: dropdown
+    id: underruns
+    attributes:
+      label: Are underrun events firing?
+      description: If you listen to the underrun stream, does it emit around the time of the problem?
+      options:
+        - Yes, underruns fire
+        - No underruns
+        - Not listening to underrun events
+        - Not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce / minimal code
+      description: A minimal code snippet or steps that trigger the problem. Bugs with a runnable repro get fixed much faster.
+      render: dart
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      description: Any relevant console output, platform logs (logcat / Xcode console), or stack traces.
+      render: shell
+    validations:
+      required: false
