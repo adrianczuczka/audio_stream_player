@@ -3,7 +3,7 @@ description: >-
   Low-latency PCM audio streaming player. Feed raw audio chunks from TTS or
   realtime voice APIs and hear them as they arrive, with buffer introspection
   and underrun events.
-version: 1.0.1
+version: 1.0.2
 repository: https://github.com/adrianczuczka/audio_stream_player
 issue_tracker: https://github.com/adrianczuczka/audio_stream_player/issues
 topics:
@@ -12,6 +12,11 @@ topics:
   - streaming
   - tts
   - voice
+screenshots:
+  - description: >-
+      Example app streaming a jittery TTS-style byte stream, showing the
+      buffer gauge and underrun recovery.
+    path: doc/demo.gif
 
 environment:
   sdk: ^3.4.0

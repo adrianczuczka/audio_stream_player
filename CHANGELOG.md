@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2
+
+- Added a demo GIF of the example app to the README and package screenshots.
+- No functional changes.
+
 ## 1.0.1
 
 - Shortened the package description to meet pub.dev's 180-character limit.

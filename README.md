@@ -17,6 +17,8 @@ await for (final chunk in ttsApi.streamAudio(text)) {
 await player.endOfStream(); // completes when the last sample has played
 ```
 
+<img src="https://raw.githubusercontent.com/adrianczuczka/audio_stream_player/master/doc/demo.gif" width="320" alt="Example app streaming a jittery TTS-style byte stream, showing the buffer gauge and underrun recovery">
+
 ## Why this package
 
 General-purpose players (`just_audio`, `audioplayers`) are built around URLs
