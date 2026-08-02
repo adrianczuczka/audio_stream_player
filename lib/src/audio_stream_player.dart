@@ -146,6 +146,9 @@ class AudioStreamPlayer {
   ///
   /// Safe to call before the first [feed]; the player plays silence-free from
   /// the moment data arrives.
+  ///
+  /// On web, browsers only allow audio to start after a user gesture – make
+  /// the first call from an input handler.
   Future<void> play() async {
     _checkNotDisposed();
     await _methods.invokeMethod<void>('play', {'playerId': _playerId});

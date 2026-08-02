@@ -45,6 +45,7 @@ actually needs:
 | Android | `AudioTrack` (low-latency mode) | API 21 |
 | iOS | `AVAudioEngine` | 13.0 |
 | macOS | `AVAudioEngine` | 10.15 |
+| Web | Web Audio (`AudioContext`) | Any modern browser |
 
 ## Usage
 
@@ -110,5 +111,11 @@ await player.dispose();
 - Bytes are interleaved little-endian PCM, the wire format of essentially
   every TTS API. `PcmFormat.s16le` matches OpenAI, ElevenLabs, Cartesia,
   Google, and Amazon defaults.
+- On web, browsers block audio until the page has had a user gesture: make
+  the first `play()` call from an input handler (a tap on your mic or send
+  button is enough). Sample rates of 8000–96000 Hz are guaranteed by the Web
+  Audio spec; most browsers accept a wider range. Each player holds an
+  `AudioContext`, and some browsers cap concurrent contexts, so prefer a
+  handful of players at most.
 - The example app simulates a jittery TTS byte stream end-to-end, including
   underrun recovery — `cd example && flutter run`.

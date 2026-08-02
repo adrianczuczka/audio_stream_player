@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0
+
+- Added web support: playback through the Web Audio API, with the same
+  gapless scheduling, underrun events, `endOfStream()` drain future and
+  buffered-duration gauge as the mobile/desktop backends.
+- Web notes: browsers only start audio after a user gesture, so make the
+  first `play()` call from an input handler; sample rates are guaranteed
+  for 8000-96000 Hz (most browsers accept more).
+
 ## 1.0.3
 
 - Re-recorded the demo GIF with the animated wave buffer gauge, so the

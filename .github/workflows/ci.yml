@@ -27,6 +27,8 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      # Runs the web backend's browser tests in headless Chrome.
+      - run: flutter test --platform chrome
 
   pana:
     name: Pub score (pana)
@@ -54,6 +56,22 @@ jobs:
           channel: stable
           cache: true
       - run: flutter build apk --debug
+        working-directory: example
+
+  build-example-web:
+    name: Build example (Web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter build web --release
+        working-directory: example
+      # The wasm build additionally proves the js_interop usage is
+      # WasmGC-compatible.
+      - run: flutter build web --wasm
         working-directory: example
 
   build-example-darwin:

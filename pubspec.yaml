@@ -3,7 +3,7 @@ description: >-
   Low-latency PCM audio streaming player. Feed raw audio chunks from TTS or
   realtime voice APIs and hear them as they arrive, with buffer introspection
   and underrun events.
-version: 1.0.3
+version: 1.1.0
 repository: https://github.com/adrianczuczka/audio_stream_player
 issue_tracker: https://github.com/adrianczuczka/audio_stream_player/issues
 topics:
@@ -25,6 +25,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_web_plugins:
+    sdk: flutter
+  web: ^1.0.0
 
 dev_dependencies:
   flutter_test:
@@ -43,3 +46,6 @@ flutter:
       macos:
         pluginClass: AudioStreamPlayerPlugin
         sharedDarwinSource: true
+      web:
+        pluginClass: AudioStreamPlayerWeb
+        fileName: audio_stream_player_web.dart

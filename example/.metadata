@@ -24,6 +24,9 @@ migration:
     - platform: macos
       create_revision: ee80f08bbf97172ec030b8751ceab557177a34a6
       base_revision: ee80f08bbf97172ec030b8751ceab557177a34a6
+    - platform: web
+      create_revision: ee80f08bbf97172ec030b8751ceab557177a34a6
+      base_revision: ee80f08bbf97172ec030b8751ceab557177a34a6
 
   # User provided section
 
