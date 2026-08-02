@@ -82,11 +82,12 @@ class _DemoPageState extends State<DemoPage> {
       for (final chunk in _synthesizeUtterance(random)) {
         await player.feed(chunk);
         if (_simulateNetworkJitter) {
-          // Chunks carry ~100ms of audio but arrive every 60-140ms, with an
-          // occasional 400ms hiccup that demonstrates underrun recovery.
+          // Chunks carry ~100ms of audio but arrive every 50-120ms, so the
+          // buffer slowly builds; an occasional 400ms hiccup drains it and
+          // demonstrates underrun recovery.
           final hiccup = random.nextInt(10) == 0;
           await Future<void>.delayed(
-            Duration(milliseconds: hiccup ? 400 : 60 + random.nextInt(80)),
+            Duration(milliseconds: hiccup ? 400 : 50 + random.nextInt(70)),
           );
         }
         if (!_streaming) return; // stopped mid-stream
@@ -186,8 +187,8 @@ class _DemoPageState extends State<DemoPage> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: min(_buffered.inMilliseconds / 2000, 1),
+                  _BufferWave(
+                    amplitude: min(_buffered.inMilliseconds / 300, 1),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -258,4 +259,106 @@ class _DemoPageState extends State<DemoPage> {
             ),
     );
   }
+}
+
+/// Buffered-audio gauge drawn as a travelling wave: flat when the buffer is
+/// empty, full height at 300ms buffered.
+class _BufferWave extends StatefulWidget {
+  const _BufferWave({required this.amplitude});
+
+  /// Buffer fill fraction, 0..1.
+  final double amplitude;
+
+  @override
+  State<_BufferWave> createState() => _BufferWaveState();
+}
+
+class _BufferWaveState extends State<_BufferWave>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _phase = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _phase.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: widget.amplitude),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      builder: (context, amplitude, _) => SizedBox(
+        height: 48,
+        // Without the boundary every wave frame repaints the whole page,
+        // which is enough jank to starve the feed loop on debug builds.
+        child: RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _phase,
+            builder: (context, _) => CustomPaint(
+              size: Size.infinite,
+              painter: _WavePainter(
+                phase: _phase.value,
+                amplitude: amplitude,
+                color: color,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WavePainter extends CustomPainter {
+  const _WavePainter({
+    required this.phase,
+    required this.amplitude,
+    required this.color,
+  });
+
+  final double phase;
+  final double amplitude;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final mid = size.height / 2;
+    final maxAmp = size.height / 2 - 4;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    void wave(double amp, double phaseOffset, int alpha, double strokeWidth) {
+      paint
+        ..color = color.withAlpha(alpha)
+        ..strokeWidth = strokeWidth;
+      final path = Path();
+      for (var x = 0.0; x <= size.width; x += 2) {
+        final t = x / size.width;
+        // Taper toward the edges so the wave fades out at both ends.
+        final taper = sin(pi * t);
+        final y = mid +
+            amp * maxAmp * taper * sin(2 * pi * (2.5 * t - phase) + phaseOffset);
+        if (x == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      canvas.drawPath(path, paint);
+    }
+
+    wave(amplitude, 0, 255, 2.5);
+    wave(amplitude * 0.6, pi / 2, 90, 2);
+  }
+
+  @override
+  bool shouldRepaint(_WavePainter old) =>
+      old.phase != phase || old.amplitude != amplitude || old.color != color;
 }
