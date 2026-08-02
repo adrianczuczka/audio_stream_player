@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3
+
+- Re-recorded the demo GIF with the animated wave buffer gauge, so the
+  pub.dev screenshot matches the current example app.
+- No functional changes.
+
 ## 1.0.2
 
 - Added a demo GIF of the example app to the README and package screenshots.
