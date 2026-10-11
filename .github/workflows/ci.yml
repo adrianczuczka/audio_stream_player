@@ -40,6 +40,9 @@ jobs:
           channel: stable
           cache: true
       - run: dart pub global activate pana
+      # Pana uses these tools to validate and convert the animated screenshot.
+      - name: Install screenshot tools
+        run: sudo apt-get update && sudo apt-get install -y webp
       - run: pana --no-warning --exit-code-threshold 0 .
 
   build-example-android:
@@ -72,6 +75,9 @@ jobs:
       # The wasm build additionally proves the js_interop usage is
       # WasmGC-compatible.
       - run: flutter build web --wasm
+        working-directory: example
+      - name: Build streaming TTS demo
+        run: flutter build web --release --target lib/tts_main.dart
         working-directory: example
 
   build-example-darwin:

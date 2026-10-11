@@ -1,6 +1,7 @@
 # audio_stream_player
 
 [![pub package](https://img.shields.io/pub/v/audio_stream_player.svg)](https://pub.dev/packages/audio_stream_player)
+[![CI](https://github.com/adrianczuczka/audio_stream_player/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/adrianczuczka/audio_stream_player/actions/workflows/ci.yml)
 
 A low-latency raw PCM streaming player for Flutter. Feed audio byte chunks
 from a TTS or realtime voice API and hear them as they arrive — no files, no
@@ -46,6 +47,20 @@ actually needs:
 | iOS | `AVAudioEngine` | 13.0 |
 | macOS | `AVAudioEngine` | 10.15 |
 | Web | Web Audio (`AudioContext`) | Any modern browser |
+
+## Installation
+
+```sh
+flutter pub add audio_stream_player
+```
+
+```dart
+import 'package:audio_stream_player/audio_stream_player.dart';
+```
+
+[API reference](https://pub.dev/documentation/audio_stream_player/latest/)
+· [Changelog](CHANGELOG.md)
+· [GitHub releases](https://github.com/adrianczuczka/audio_stream_player/releases)
 
 ## Usage
 
@@ -109,8 +124,9 @@ await player.dispose();
 - Buffering is unbounded: if your source can outrun playback for minutes,
   poll `bufferedDuration()` and throttle your reads.
 - Bytes are interleaved little-endian PCM, the wire format of essentially
-  every TTS API. `PcmFormat.s16le` matches OpenAI, ElevenLabs, Cartesia,
-  Google, and Amazon defaults.
+  TTS APIs when raw PCM output is selected. Request PCM explicitly and
+  match the provider's sample rate, channels and encoding; MP3, WAV headers
+  and other encoded audio cannot be fed directly.
 - On web, browsers block audio until the page has had a user gesture: make
   the first `play()` call from an input handler (a tap on your mic or send
   button is enough). Sample rates of 8000–96000 Hz are guaranteed by the Web
@@ -119,3 +135,11 @@ await player.dispose();
   handful of players at most.
 - The example app simulates a jittery TTS byte stream end-to-end, including
   underrun recovery — `cd example && flutter run`.
+
+## Real TTS example
+
+The [OpenAI TTS demo](example/README.md#openai-tts-demo) streams 24 kHz
+mono `s16le` audio from a local proxy into the player. It includes
+stop-and-flush, error handling and a drain notification. The API key stays
+in the proxy environment. A fixture mode lets you try the same streaming
+path without an API key.

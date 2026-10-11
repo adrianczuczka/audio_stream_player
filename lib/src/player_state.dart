@@ -1,6 +1,6 @@
 /// Playback state of an `AudioStreamPlayer`.
 enum PlayerState {
-  /// Not playing. The initial state, and the state after [stop] or after the
+  /// Not playing. The initial state, and the state after `stop()` or after the
   /// buffer drains following `endOfStream()`.
   idle,
 
