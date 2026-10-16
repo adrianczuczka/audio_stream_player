@@ -42,9 +42,40 @@ public class AudioStreamPlayerPlugin: NSObject, FlutterPlugin {
 
     private var players = [Int: PlayerEntry]()
     private var messenger: FlutterBinaryMessenger
+    // Pending idle check that stops idle engines and deactivates the session.
+    // Delayed so back-to-back utterances don't let other apps' audio resume
+    // for a moment between them.
+    private var idleWork: DispatchWorkItem?
+    private static let idleDelay: TimeInterval = 1.0
+
+    #if os(iOS)
+        // How the most recent `create` asked for the shared session to be
+        // managed: "playback", "voiceChat" or "manual".
+        private var sessionConfig = "playback"
+        private var managesSession: Bool { sessionConfig != "manual" }
+        private var sessionActive = false
+        private var interruptionObserver: NSObjectProtocol?
+    #endif
 
     init(messenger: FlutterBinaryMessenger) {
         self.messenger = messenger
+        super.init()
+        #if os(iOS)
+            interruptionObserver = NotificationCenter.default.addObserver(
+                forName: AVAudioSession.interruptionNotification,
+                object: AVAudioSession.sharedInstance(), queue: .main
+            ) { [weak self] note in
+                self?.handleInterruption(note)
+            }
+        #endif
+    }
+
+    deinit {
+        #if os(iOS)
+            if let observer = interruptionObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        #endif
     }
 
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -57,6 +88,11 @@ public class AudioStreamPlayerPlugin: NSObject, FlutterPlugin {
             name: "audio_stream_player/methods", binaryMessenger: messenger)
         let instance = AudioStreamPlayerPlugin(messenger: messenger)
         registrar.addMethodCallDelegate(instance, channel: channel)
+        registrar.publish(instance)
+    }
+
+    public func detachFromEngine(for registrar: FlutterPluginRegistrar) {
+        releaseAll()
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -82,10 +118,17 @@ public class AudioStreamPlayerPlugin: NSObject, FlutterPlugin {
                 let data = (args["data"] as! FlutterStandardTypedData).data
                 try entry.player.feed(data)
             case "play":
-                #if os(iOS)
-                    try Self.activateAudioSessionIfNeeded()
-                #endif
-                try entry.player.play()
+                idleWork?.cancel()
+                idleWork = nil
+                do {
+                    #if os(iOS)
+                        try activateSessionIfManaged()
+                    #endif
+                    try entry.player.play()
+                } catch {
+                    scheduleIdleCheck()
+                    throw error
+                }
             case "pause":
                 entry.player.pause()
             case "stop":
@@ -98,9 +141,9 @@ public class AudioStreamPlayerPlugin: NSObject, FlutterPlugin {
                 result(entry.player.bufferedDurationMicros())
                 return
             case "dispose":
-                entry.player.release()
-                entry.eventChannel.setStreamHandler(nil)
+                release(entry)
                 players.removeValue(forKey: playerId)
+                scheduleIdleCheck()
             default:
                 result(FlutterMethodNotImplemented)
                 return
@@ -120,13 +163,36 @@ public class AudioStreamPlayerPlugin: NSObject, FlutterPlugin {
         let channels = args["channels"] as! Int
         let isFloat = (args["format"] as? String) == "f32le"
 
+        // Player ids come from a Dart static that restarts at 0 on hot
+        // restart, while this plugin instance and its players survive. The
+        // old isolate can never dispose them, so id 0 means a fresh Dart
+        // isolate: release everything left over. A reused id is released
+        // either way so its engine never leaks.
+        if playerId == 0 {
+            releaseAll()
+        } else if let stale = players.removeValue(forKey: playerId) {
+            release(stale)
+        }
+
         #if os(iOS)
-            if (args["configureAudioSession"] as? Bool) ?? true {
-                Self.configureSession = true
-                try AVAudioSession.sharedInstance().setCategory(
-                    .playback, mode: .spokenAudio)
-            } else {
-                Self.configureSession = false
+            sessionConfig = (args["audioSession"] as? String) ?? "playback"
+            let session = AVAudioSession.sharedInstance()
+            switch sessionConfig {
+            case "voiceChat":
+                // The iOS 26 SDK (Swift 6.2) renamed .allowBluetooth; both
+                // names map to the same option on every iOS version.
+                #if compiler(>=6.2)
+                    let bluetooth = AVAudioSession.CategoryOptions.allowBluetoothHFP
+                #else
+                    let bluetooth = AVAudioSession.CategoryOptions.allowBluetooth
+                #endif
+                try session.setCategory(
+                    .playAndRecord, mode: .voiceChat,
+                    options: [.defaultToSpeaker, bluetooth])
+            case "manual":
+                break
+            default:
+                try session.setCategory(.playback, mode: .spokenAudio)
             }
         #endif
 
@@ -137,19 +203,119 @@ public class AudioStreamPlayerPlugin: NSObject, FlutterPlugin {
         eventChannel.setStreamHandler(handler)
         let player = try PcmStreamPlayer(
             sampleRate: sampleRate, channels: channels, isFloat: isFloat
-        ) { [weak handler] event in
+        ) { [weak self, weak handler] event in
             handler?.sink?(event)
+            if event["event"] as? String == "state" {
+                self?.scheduleIdleCheck()
+            }
         }
         players[playerId] = PlayerEntry(
             player: player, eventChannel: eventChannel, handler: handler)
     }
 
-    #if os(iOS)
-        private static var configureSession = true
+    private func release(_ entry: PlayerEntry) {
+        entry.player.release()
+        entry.eventChannel.setStreamHandler(nil)
+    }
 
-        private static func activateAudioSessionIfNeeded() throws {
-            if configureSession {
-                try AVAudioSession.sharedInstance().setActive(true)
+    private func releaseAll() {
+        for entry in players.values {
+            release(entry)
+        }
+        players.removeAll()
+        scheduleIdleCheck()
+    }
+
+    /// Once every player is idle, stops their engines and, if the plugin
+    /// owns the session, deactivates it so other apps' audio resumes.
+    private func scheduleIdleCheck() {
+        idleWork?.cancel()
+        idleWork = nil
+        guard players.values.allSatisfy({ $0.player.isIdle }) else { return }
+        let work = DispatchWorkItem { [weak self] in
+            self?.handleIdle()
+        }
+        idleWork = work
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.idleDelay, execute: work)
+    }
+
+    private func handleIdle() {
+        idleWork = nil
+        guard players.values.allSatisfy({ $0.player.isIdle }) else { return }
+        for entry in players.values {
+            entry.player.stopEngineIfIdle()
+        }
+        #if os(iOS)
+            guard sessionActive else { return }
+            sessionActive = false
+            // Failure only means another audio object is still running; the
+            // session stays active and nothing else needs undoing.
+            try? AVAudioSession.sharedInstance().setActive(
+                false, options: .notifyOthersOnDeactivation)
+        #endif
+    }
+
+    #if os(iOS)
+        private func activateSessionIfManaged() throws {
+            guard managesSession else { return }
+            try AVAudioSession.sharedInstance().setActive(true)
+            sessionActive = true
+        }
+
+        /// A phone call, Siri or another app's non-mixable audio took the
+        /// session. The system has already stopped every engine, so playing
+        /// players move to paused instead of reporting `playing` in silence.
+        ///
+        /// When the interruption ends with `.shouldResume`, the players it
+        /// paused resume by themselves. Apple recommends this, and the app
+        /// has no other way to learn when the interruption ended. Without
+        /// `.shouldResume`, or when the app manages the session itself, they
+        /// stay paused until the app calls `play()`.
+        private func handleInterruption(_ note: Notification) {
+            guard let info = note.userInfo,
+                let rawType = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+                let type = AVAudioSession.InterruptionType(rawValue: rawType)
+            else { return }
+            switch type {
+            case .began:
+                sessionActive = false
+                for entry in players.values {
+                    entry.player.interruptionBegan()
+                }
+            case .ended:
+                let rawOptions =
+                    info[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+                let shouldResume = AVAudioSession.InterruptionOptions(
+                    rawValue: rawOptions
+                ).contains(.shouldResume)
+                let interrupted = players.values.filter {
+                    $0.player.pausedByInterruption
+                }
+                guard shouldResume && managesSession && !interrupted.isEmpty
+                else {
+                    for entry in interrupted {
+                        entry.player.clearInterruption()
+                    }
+                    return
+                }
+                do {
+                    idleWork?.cancel()
+                    idleWork = nil
+                    try activateSessionIfManaged()
+                } catch {
+                    for entry in interrupted {
+                        entry.player.clearInterruption()
+                        entry.player.emitError(
+                            "Could not reactivate the audio session: \(error)")
+                    }
+                    return
+                }
+                for entry in interrupted {
+                    entry.player.resumeAfterInterruption()
+                }
+            @unknown default:
+                break
             }
         }
     #endif

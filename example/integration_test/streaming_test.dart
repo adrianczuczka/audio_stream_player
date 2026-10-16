@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:audio_stream_player/audio_stream_player.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
@@ -136,5 +137,121 @@ void main() {
 
     await a.dispose();
     await b.dispose();
+  });
+
+  testWidgets('plays again after the idle engine stop and session release', (
+    tester,
+  ) async {
+    final player = await AudioStreamPlayer.create(sampleRate: 24000);
+    await player.play();
+    await player.feed(sine(sampleRate: 24000, millis: 200));
+    await player.endOfStream().timeout(const Duration(seconds: 5));
+
+    // After a second idle, the engine is stopped and the audio session (iOS)
+    // or audio focus (Android) is released. Playback must come back.
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    await player.play();
+    expect(player.state, PlayerState.playing);
+    await player.feed(sine(sampleRate: 24000, millis: 300));
+    final stopwatch = Stopwatch()..start();
+    await player.endOfStream().timeout(const Duration(seconds: 5));
+    expect(stopwatch.elapsed, greaterThan(const Duration(milliseconds: 100)));
+    expect(player.state, PlayerState.idle);
+    await player.dispose();
+  });
+
+  testWidgets('audio fed ahead of play survives the idle engine stop', (
+    tester,
+  ) async {
+    final player = await AudioStreamPlayer.create(sampleRate: 24000);
+    await player.feed(sine(sampleRate: 24000, millis: 400));
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    expect(
+      await player.bufferedDuration(),
+      greaterThan(const Duration(milliseconds: 300)),
+    );
+    await player.play();
+    final stopwatch = Stopwatch()..start();
+    await player.endOfStream().timeout(const Duration(seconds: 5));
+    expect(stopwatch.elapsed, greaterThan(const Duration(milliseconds: 200)));
+    await player.dispose();
+  });
+
+  for (final config in AudioSessionConfig.values) {
+    testWidgets('plays with AudioSessionConfig.${config.name}', (tester) async {
+      final player = await AudioStreamPlayer.create(
+        sampleRate: 24000,
+        audioSession: config,
+      );
+      await player.play();
+      await player.feed(sine(sampleRate: 24000, millis: 300));
+      await player.endOfStream().timeout(const Duration(seconds: 5));
+      expect(player.state, PlayerState.idle);
+      await player.dispose();
+    });
+  }
+
+  // Hot restart resets the Dart player id counter while native players
+  // survive. These drive the method channel directly with fixed ids to
+  // simulate a new isolate reusing ids.
+  group('hot restart', () {
+    final channel = AudioStreamPlayer.methodChannel;
+    Map<String, Object> createArgs(int id) => {
+      'playerId': id,
+      'sampleRate': 24000,
+      'channels': 1,
+      'format': 's16le',
+      'audioSession': 'playback',
+    };
+
+    testWidgets('create with a reused id replaces the old player', (
+      tester,
+    ) async {
+      const id = 900001;
+      await channel.invokeMethod<void>('create', createArgs(id));
+      await channel.invokeMethod<void>('feed', {
+        'playerId': id,
+        'data': sine(sampleRate: 24000, millis: 500),
+      });
+      expect(
+        await channel.invokeMethod<int>('bufferedDurationMicros', {
+          'playerId': id,
+        }),
+        greaterThan(0),
+      );
+
+      await channel.invokeMethod<void>('create', createArgs(id));
+      // The fresh player has none of the old player's audio.
+      expect(
+        await channel.invokeMethod<int>('bufferedDurationMicros', {
+          'playerId': id,
+        }),
+        0,
+      );
+      await channel.invokeMethod<void>('dispose', {'playerId': id});
+    });
+
+    testWidgets('create with id 0 releases every leftover player', (
+      tester,
+    ) async {
+      const leftover = 900002;
+      await channel.invokeMethod<void>('create', createArgs(leftover));
+      await channel.invokeMethod<void>('play', {'playerId': leftover});
+      await channel.invokeMethod<void>('feed', {
+        'playerId': leftover,
+        'data': sine(sampleRate: 24000, millis: 2000),
+      });
+
+      await channel.invokeMethod<void>('create', createArgs(0));
+      await expectLater(
+        channel.invokeMethod<int>('bufferedDurationMicros', {
+          'playerId': leftover,
+        }),
+        throwsA(
+          isA<PlatformException>().having((e) => e.code, 'code', 'not_found'),
+        ),
+      );
+      await channel.invokeMethod<void>('dispose', {'playerId': 0});
+    });
   });
 }

@@ -84,7 +84,7 @@ class AudioStreamPlayerWeb {
       const StandardMethodCodec(),
       _registrar,
     ).setController(events);
-    // `configureAudioSession` has no web equivalent and is ignored.
+    // `audioSession` has no web equivalent and is ignored.
     final player = WebPcmPlayer(
       sampleRate: args['sampleRate']! as int,
       channels: args['channels']! as int,

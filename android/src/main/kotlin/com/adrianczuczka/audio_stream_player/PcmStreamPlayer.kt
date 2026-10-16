@@ -48,6 +48,9 @@ class PcmStreamPlayer(
     private var volume = 1.0f
     private var framesWritten = 0L
     private var underrunReported = false
+    // Set when an audio focus loss paused the player, so focus regain may
+    // resume it. Cleared by any explicit control.
+    private var pausedByFocusLoss = false
     // Bumped on stop/dispose; the writer abandons in-flight work when it changes.
     private var generation = 0L
 
@@ -107,8 +110,13 @@ class PcmStreamPlayer(
         queue.put(data)
     }
 
+    /** True when the player is neither playing nor paused. */
+    val isIdle: Boolean
+        get() = synchronized(lock) { released || !playing }
+
     fun play() {
         synchronized(lock) {
+            pausedByFocusLoss = false
             if (released || (playing && !paused)) return
             playing = true
             paused = false
@@ -119,11 +127,41 @@ class PcmStreamPlayer(
 
     fun pause() {
         synchronized(lock) {
+            // An explicit pause overrides a pending resume on focus regain.
+            pausedByFocusLoss = false
             if (released || !playing || paused) return
             paused = true
             track.pause()
         }
         emit(mapOf("event" to "state", "state" to "paused"))
+    }
+
+    /**
+     * Another app took audio focus. Pauses a playing player; with [resumable]
+     * set, [resumeAfterFocusGain] resumes it when focus comes back.
+     */
+    fun pauseForFocusLoss(resumable: Boolean) {
+        synchronized(lock) {
+            if (!resumable) pausedByFocusLoss = false
+            if (released || !playing || paused) return
+            paused = true
+            pausedByFocusLoss = resumable
+            track.pause()
+        }
+        emit(mapOf("event" to "state", "state" to "paused"))
+    }
+
+    /** Resumes a player that a transient focus loss paused. */
+    fun resumeAfterFocusGain() {
+        synchronized(lock) {
+            if (!pausedByFocusLoss) return
+        }
+        try {
+            play()
+        } catch (e: Exception) {
+            val message = "Could not resume after focus loss: ${e.message}"
+            emit(mapOf("event" to "error", "message" to message))
+        }
     }
 
     fun stop() {
@@ -183,6 +221,7 @@ class PcmStreamPlayer(
         queuedBytes.set(0)
         playing = false
         paused = false
+        pausedByFocusLoss = false
         underrunReported = false
         framesWritten = 0
         track.release()
