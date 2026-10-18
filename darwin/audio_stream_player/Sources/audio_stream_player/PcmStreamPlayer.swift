@@ -152,11 +152,12 @@ final class PcmStreamPlayer {
     /// Stops the engine of an idle player so the audio session can be
     /// deactivated without running I/O. `play()` restarts it. A player with
     /// audio fed ahead of `play()` keeps its engine, so stopping can never
-    /// discard that audio.
-    func stopEngineIfIdle() {
+    /// discard that audio. Returns true when the engine is no longer running.
+    func stopEngineIfIdle() -> Bool {
         if !playing && buffersPending == 0 && engine.isRunning {
             engine.stop()
         }
+        return !engine.isRunning
     }
 
     /// The system interrupted the audio session (a phone call or Siri) and

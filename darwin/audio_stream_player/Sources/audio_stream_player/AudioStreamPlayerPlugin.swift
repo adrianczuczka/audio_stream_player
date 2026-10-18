@@ -243,20 +243,29 @@ public class AudioStreamPlayerPlugin: NSObject, FlutterPlugin {
     private func handleIdle() {
         idleWork = nil
         guard players.values.allSatisfy({ $0.player.isIdle }) else { return }
-        for entry in players.values {
-            entry.player.stopEngineIfIdle()
-        }
+        // Map before checking so every idle engine stops, not just the ones
+        // before the first that keeps running.
+        let enginesStopped = players.values
+            .map { $0.player.stopEngineIfIdle() }
+            .allSatisfy { $0 }
         #if os(iOS)
             // Deactivating stops every running audio object in the app, not
             // just ours. In voiceChat mode a recorder is expected to outlive
             // each utterance, so the session stays active until the app
-            // deactivates it.
-            guard sessionActive && sessionConfig == "playback" else { return }
+            // deactivates it. A player with audio fed ahead of play() keeps
+            // its engine running, and deactivating would stop it and could
+            // drop that audio, so the session stays active until it drains
+            // or stops.
+            guard sessionActive && sessionConfig == "playback"
+                && enginesStopped
+            else { return }
             sessionActive = false
             // The session is inactive even when this throws isBusy, so the
             // error carries nothing to undo.
             try? AVAudioSession.sharedInstance().setActive(
                 false, options: .notifyOthersOnDeactivation)
+        #else
+            _ = enginesStopped
         #endif
     }
 

@@ -4,9 +4,9 @@
 
 ### Behavior changes
 
-Check these before you upgrade. They only apply when the player manages the
-audio session, which is the default. `AudioSessionConfig.manual` keeps the
-1.1.0 behavior.
+Check these before you upgrade. Except for error delivery, they only apply
+when the player manages the audio session, which is the default.
+`AudioSessionConfig.manual` keeps the 1.1.0 session behavior.
 
 - `play()` can now throw a `PlatformException`: `audio_focus_denied` on
   Android when the system refuses audio focus, or a session activation error
@@ -27,6 +27,12 @@ audio session, which is the default. `AudioSessionConfig.manual` keeps the
   `AudioSessionConfig.manual` and manage the session yourself.
   `AudioSessionConfig.voiceChat` never deactivates the session, so a
   recorder keeps running between utterances.
+- Native errors, such as an `AudioTrack` write error or a failed resume
+  after an interruption, now arrive as errors on `onStateChanged`. Before,
+  they were dropped. If you listen without an `onError` handler, these
+  errors are unhandled and reach your zone's error handler or crash
+  reporter. Pass `onError` to `listen()`. This applies in every
+  `AudioSessionConfig` mode.
 
 ### Changes
 
@@ -59,8 +65,6 @@ audio session, which is the default. `AudioSessionConfig.manual` keeps the
 - Fixed a native leak on hot restart: players from the previous run kept
   their `AVAudioEngine` or `AudioTrack` and writer thread, and kept playing.
   They're now released when the restarted app creates its first player.
-- Fixed native error events, such as an `AudioTrack` write error, being
-  dropped instead of delivered as errors on `onStateChanged`.
 
 ## 1.1.0
 

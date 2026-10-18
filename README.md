@@ -119,7 +119,10 @@ next utterance.
 ### Observe playback
 
 ```dart
-player.onStateChanged.listen((s) => ...);   // idle / playing / paused
+player.onStateChanged.listen(
+  (s) => ...,                               // idle / playing / paused
+  onError: (Object e) => ...,               // native playback errors
+);
 player.onUnderrun.listen((_) => ...);       // buffer starved mid-stream
 final buffered = await player.bufferedDuration();
 ```

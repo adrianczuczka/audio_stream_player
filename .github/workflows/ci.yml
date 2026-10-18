@@ -25,7 +25,10 @@ jobs:
           channel: ${{ matrix.channel }}
           cache: true
       - run: flutter pub get
-      - run: flutter analyze
+      # Beta deprecates APIs that stable has no replacement for yet (such
+      # as package:flutter/material.dart), so infos don't fail beta.
+      # Warnings and errors still do.
+      - run: flutter analyze ${{ matrix.channel == 'beta' && '--no-fatal-infos' || '' }}
       - run: flutter test
       # Runs the web backend's browser tests in headless Chrome.
       - run: flutter test --platform chrome

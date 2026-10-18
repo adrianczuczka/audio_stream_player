@@ -55,7 +55,7 @@ class _DemoPageState extends State<DemoPage> {
     _stateSub = player.onStateChanged.listen((state) {
       setState(() => _state = state);
       _addLog('state → ${state.name}');
-    });
+    }, onError: (Object error) => _addLog('error: $error'));
     _underrunSub = player.onUnderrun.listen((_) {
       setState(() => _underruns++);
       _addLog('underrun (buffer starved)');
@@ -343,8 +343,12 @@ class _WavePainter extends CustomPainter {
         final t = x / size.width;
         // Taper toward the edges so the wave fades out at both ends.
         final taper = sin(pi * t);
-        final y = mid +
-            amp * maxAmp * taper * sin(2 * pi * (2.5 * t - phase) + phaseOffset);
+        final y =
+            mid +
+            amp *
+                maxAmp *
+                taper *
+                sin(2 * pi * (2.5 * t - phase) + phaseOffset);
         if (x == 0) {
           path.moveTo(x, y);
         } else {
