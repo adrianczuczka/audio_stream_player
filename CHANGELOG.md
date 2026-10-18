@@ -2,6 +2,32 @@
 
 ## 1.2.0
 
+### Behavior changes
+
+Check these before you upgrade. They only apply when the player manages the
+audio session, which is the default. `AudioSessionConfig.manual` keeps the
+1.1.0 behavior.
+
+- `play()` can now throw a `PlatformException`: `audio_focus_denied` on
+  Android when the system refuses audio focus, or a session activation error
+  on iOS, for example during a phone call. Wrap `play()` in a `try`/`catch`.
+- The system can now move a player to `paused`: iOS audio session
+  interruptions and Android audio focus losses. After a permanent focus loss,
+  or an interruption that ends without `.shouldResume`, the player stays
+  paused until you call `play()`. A pending `endOfStream()` future doesn't
+  complete until playback resumes or you call `stop()`, so don't await it
+  without also handling `paused`.
+- Android: other apps' audio now ducks while the player plays, instead of
+  playing over it. Short focus losses that would duck your audio, such as a
+  notification sound or a navigation prompt, pause it instead.
+- iOS: the plugin deactivates the audio session about a second after every
+  player is idle. Deactivation stops your app's other running audio objects,
+  such as another player or a recorder. If your app plays or records audio
+  outside this package, use `AudioSessionConfig.manual` and manage the
+  session yourself.
+
+### Changes
+
 - Added `AudioSessionConfig` and the `audioSession` parameter of
   `AudioStreamPlayer.create`. `AudioSessionConfig.voiceChat` uses the iOS
   `.playAndRecord` category with `.voiceChat` mode, `.defaultToSpeaker` and
