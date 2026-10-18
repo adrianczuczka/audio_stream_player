@@ -98,6 +98,11 @@ On iOS, the default `.playback` category stops microphone capture, so a
 realtime voice app that records while the assistant speaks must use
 `AudioSessionConfig.voiceChat` or `AudioSessionConfig.manual`.
 
+With `AudioSessionConfig.voiceChat`, the player activates the iOS session
+but never deactivates it, because deactivating would also stop your
+recorder. Deactivate the session yourself when the conversation ends, for
+example with `audio_session`, so other apps' audio resumes.
+
 ### Stream an utterance
 
 ```dart
@@ -145,10 +150,14 @@ await player.dispose();
   poll `bufferedDuration()` and throttle your reads.
 - Other apps' audio: `play()` activates the iOS audio session or requests
   transient Android audio focus, which pauses music in other apps. About a
-  second after every player is idle (drained or stopped), the session is
-  deactivated or focus abandoned, and the other app's music resumes. A
-  paused player keeps the session. `play()` throws a `PlatformException` if
-  the system refuses, for example during a phone call.
+  second after every player is idle (drained or stopped), Android focus is
+  abandoned and, with the default `AudioSessionConfig.playback`, the iOS
+  session is deactivated, and the other app's music resumes. A paused
+  player keeps the session. On iOS, deactivation also stops your app's
+  other running audio, such as another player; if your app plays audio
+  outside this package, use `AudioSessionConfig.manual`. `play()` throws a
+  `PlatformException` if the system refuses, for example during a phone
+  call.
 - Interruptions: a phone call, Siri, or another app taking audio focus moves
   a playing player to `PlayerState.paused`. When the interruption is
   transient and the system says playback may continue (iOS `.shouldResume`,

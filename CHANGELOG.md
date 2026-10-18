@@ -20,11 +20,13 @@ audio session, which is the default. `AudioSessionConfig.manual` keeps the
 - Android: other apps' audio now ducks while the player plays, instead of
   playing over it. Short focus losses that would duck your audio, such as a
   notification sound or a navigation prompt, pause it instead.
-- iOS: the plugin deactivates the audio session about a second after every
-  player is idle. Deactivation stops your app's other running audio objects,
-  such as another player or a recorder. If your app plays or records audio
-  outside this package, use `AudioSessionConfig.manual` and manage the
-  session yourself.
+- iOS: with the default `AudioSessionConfig.playback`, the plugin
+  deactivates the audio session about a second after every player is idle.
+  Deactivation stops your app's other running audio objects, such as
+  another player. If your app plays audio outside this package, use
+  `AudioSessionConfig.manual` and manage the session yourself.
+  `AudioSessionConfig.voiceChat` never deactivates the session, so a
+  recorder keeps running between utterances.
 
 ### Changes
 
@@ -36,10 +38,11 @@ audio session, which is the default. `AudioSessionConfig.manual` keeps the
 - Deprecated `configureAudioSession`. Use
   `audioSession: AudioSessionConfig.manual` instead of
   `configureAudioSession: false`.
-- iOS: the audio session is now deactivated with
-  `.notifyOthersOnDeactivation` about a second after every player is idle,
-  so music from other apps resumes after an utterance. Idle engines are
-  stopped first, on macOS too.
+- iOS: with `AudioSessionConfig.playback`, the audio session is now
+  deactivated with `.notifyOthersOnDeactivation` about a second after every
+  player is idle, so music from other apps resumes after an utterance.
+  `AudioSessionConfig.voiceChat` leaves the session active so a recorder
+  isn't stopped. Idle engines are stopped first, on macOS too.
 - iOS: audio session interruptions (phone calls, Siri) move a playing
   player to `paused` instead of leaving it silent while it reports
   `playing`. When the interruption ends with `.shouldResume`, the player

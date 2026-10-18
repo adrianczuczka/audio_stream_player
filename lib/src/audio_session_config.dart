@@ -21,8 +21,12 @@ enum AudioSessionConfig {
   /// - iOS: the `.playAndRecord` category with `.voiceChat` mode and the
   ///   `.defaultToSpeaker` and `.allowBluetooth` options, so a recorder can
   ///   capture the microphone while the player plays and output goes to the
-  ///   speaker rather than the receiver. Activation and deactivation work as
-  ///   in [playback].
+  ///   speaker rather than the receiver. The session is activated on
+  ///   `play()`, but the player never deactivates it: deactivating stops
+  ///   every running audio object in the app, including a recorder that
+  ///   keeps capturing between utterances. When the conversation ends,
+  ///   deactivate the session yourself, for example with the
+  ///   `audio_session` package, so other apps' audio resumes.
   /// - Android: same as [playback]. Android lets you record while an
   ///   `AudioTrack` plays without extra configuration.
   voiceChat,
