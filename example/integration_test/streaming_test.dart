@@ -1,31 +1,15 @@
-import 'dart:math';
-import 'dart:typed_data';
-
 import 'package:audio_stream_player/audio_stream_player.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+
+import 'test_audio.dart';
 
 /// End-to-end tests against the real native audio stack. Audio is played
 /// through the device/simulator output; assertions are on lifecycle events
 /// and timing, not on what is audible.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
-  Uint8List sine({
-    required int sampleRate,
-    required int millis,
-    double frequency = 440,
-  }) {
-    final frames = sampleRate * millis ~/ 1000;
-    final bytes = ByteData(frames * 2);
-    for (var i = 0; i < frames; i++) {
-      final envelope = sin(pi * i / frames);
-      final sample = 0.4 * envelope * sin(2 * pi * frequency * i / sampleRate);
-      bytes.setInt16(i * 2, (sample * 32767).round(), Endian.little);
-    }
-    return bytes.buffer.asUint8List();
-  }
 
   testWidgets('plays a chunked stream to completion and drains', (
     tester,
@@ -174,6 +158,31 @@ void main() {
     final stopwatch = Stopwatch()..start();
     await player.endOfStream().timeout(const Duration(seconds: 5));
     expect(stopwatch.elapsed, greaterThan(const Duration(milliseconds: 200)));
+    await player.dispose();
+  });
+
+  testWidgets('audio fed after a drain survives the idle session release', (
+    tester,
+  ) async {
+    final player = await AudioStreamPlayer.create(sampleRate: 24000);
+    await player.play();
+    await player.feed(sine(sampleRate: 24000, millis: 200));
+    await player.endOfStream().timeout(const Duration(seconds: 5));
+
+    // The engine is still running from the first utterance. Feeding without
+    // play() keeps it running, so the idle check must leave the iOS session
+    // active: deactivating would stop the engine under the queued audio.
+    await player.feed(sine(sampleRate: 24000, millis: 400));
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    expect(
+      await player.bufferedDuration(),
+      greaterThan(const Duration(milliseconds: 300)),
+    );
+    await player.play();
+    final stopwatch = Stopwatch()..start();
+    await player.endOfStream().timeout(const Duration(seconds: 5));
+    expect(stopwatch.elapsed, greaterThan(const Duration(milliseconds: 200)));
+    expect(player.state, PlayerState.idle);
     await player.dispose();
   });
 
