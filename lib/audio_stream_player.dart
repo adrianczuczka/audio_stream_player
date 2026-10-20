@@ -4,6 +4,7 @@
 /// they arrive.
 library;
 
+export 'src/audio_session_config.dart';
 export 'src/audio_stream_player.dart';
 export 'src/pcm_format.dart';
 export 'src/player_state.dart';

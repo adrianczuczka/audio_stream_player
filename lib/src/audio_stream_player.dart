@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'audio_session_config.dart';
 import 'pcm_format.dart';
 import 'player_state.dart';
 
@@ -63,13 +64,22 @@ class AudioStreamPlayer {
   /// [sampleRate] and [channels] describe the data you will [feed] — they do
   /// not need to match the device's output; resampling is handled natively.
   ///
-  /// On iOS the audio session is configured for playback unless
-  /// [configureAudioSession] is false (set it to false if you manage the
-  /// session yourself, e.g. with the `audio_session` package).
+  /// [audioSession] controls the iOS audio session and Android audio focus.
+  /// The default, [AudioSessionConfig.playback], suits TTS playback. Realtime
+  /// voice apps that record the microphone while the player plays need
+  /// [AudioSessionConfig.voiceChat] on iOS. Pass [AudioSessionConfig.manual]
+  /// if you manage the session yourself, for example with the
+  /// `audio_session` package.
+  ///
+  /// Passing `configureAudioSession: false` is equivalent to
+  /// `audioSession: AudioSessionConfig.manual`.
   static Future<AudioStreamPlayer> create({
     required int sampleRate,
     int channels = 1,
     PcmFormat format = PcmFormat.s16le,
+    AudioSessionConfig audioSession = AudioSessionConfig.playback,
+    @Deprecated('Use audioSession: AudioSessionConfig.manual instead. '
+        'This parameter will be removed in 2.0.0.')
     bool configureAudioSession = true,
   }) async {
     if (sampleRate < 4000 || sampleRate > 384000) {
@@ -84,7 +94,9 @@ class AudioStreamPlayer {
       'sampleRate': sampleRate,
       'channels': channels,
       'format': format.name,
-      'configureAudioSession': configureAudioSession,
+      'audioSession':
+          (configureAudioSession ? audioSession : AudioSessionConfig.manual)
+              .name,
     });
     final player = AudioStreamPlayer._(
       playerId: playerId,
@@ -146,6 +158,11 @@ class AudioStreamPlayer {
   ///
   /// Safe to call before the first [feed]; the player plays silence-free from
   /// the moment data arrives.
+  ///
+  /// Unless the player uses [AudioSessionConfig.manual], this activates the
+  /// iOS audio session or requests Android audio focus. It throws a
+  /// [PlatformException] if the system refuses, for example during a phone
+  /// call.
   ///
   /// On web, browsers only allow audio to start after a user gesture – make
   /// the first call from an input handler.
@@ -232,6 +249,13 @@ class AudioStreamPlayer {
           case 'drained':
             _eosPending = false;
             _completeDrain();
+          case 'error':
+            if (!_stateController.isClosed) {
+              _stateController.addError(PlatformException(
+                code: 'audio_stream_player',
+                message: map['message'] as String?,
+              ));
+            }
         }
       },
       onError: (Object error) {

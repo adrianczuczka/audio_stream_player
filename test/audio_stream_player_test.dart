@@ -16,6 +16,7 @@ void main() {
     int sampleRate = 24000,
     int channels = 1,
     PcmFormat format = PcmFormat.s16le,
+    AudioSessionConfig audioSession = AudioSessionConfig.playback,
   }) async {
     calls = [];
     messenger.setMockMethodCallHandler(AudioStreamPlayer.methodChannel,
@@ -36,7 +37,10 @@ void main() {
       return null;
     });
     final player = await AudioStreamPlayer.create(
-        sampleRate: sampleRate, channels: channels, format: format);
+        sampleRate: sampleRate,
+        channels: channels,
+        format: format,
+        audioSession: audioSession);
     await pumpEventQueue();
     return player;
   }
@@ -56,7 +60,39 @@ void main() {
     expect(args['sampleRate'], 44100);
     expect(args['channels'], 2);
     expect(args['format'], 'f32le');
-    expect(args['configureAudioSession'], true);
+    expect(args['audioSession'], 'playback');
+  });
+
+  test('create passes the audio session configuration', () async {
+    await createPlayer(audioSession: AudioSessionConfig.voiceChat);
+    expect(argsOf(calls.single)['audioSession'], 'voiceChat');
+    await createPlayer(audioSession: AudioSessionConfig.manual);
+    expect(argsOf(calls.single)['audioSession'], 'manual');
+  });
+
+  test('configureAudioSession: false maps to the manual configuration',
+      () async {
+    calls = [];
+    messenger.setMockMethodCallHandler(AudioStreamPlayer.methodChannel,
+        (call) async {
+      calls.add(call);
+      return null;
+    });
+    await AudioStreamPlayer.create(
+      sampleRate: 24000,
+      audioSession: AudioSessionConfig.voiceChat,
+      // ignore: deprecated_member_use_from_same_package
+      configureAudioSession: false,
+    );
+    expect(argsOf(calls.single)['audioSession'], 'manual');
+  });
+
+  test('player ids are unique across creates', () async {
+    await createPlayer();
+    final first = argsOf(calls.single)['playerId'];
+    await createPlayer();
+    final second = argsOf(calls.single)['playerId'];
+    expect(second, isNot(first));
   });
 
   test('create rejects invalid configurations', () async {
@@ -124,6 +160,49 @@ void main() {
     await pumpEventQueue();
     expect(states, [PlayerState.playing, PlayerState.paused]);
     expect(player.state, PlayerState.paused);
+  });
+
+  test('a system pause and resume arrive as state events', () async {
+    // An interruption or focus loss pauses natively, then resumes when the
+    // system allows it; Dart only sees ordinary state events.
+    final player = await createPlayer();
+    final states = <PlayerState>[];
+    player.onStateChanged.listen(states.add);
+    eventSink!.success({'event': 'state', 'state': 'playing'});
+    eventSink!.success({'event': 'state', 'state': 'paused'});
+    eventSink!.success({'event': 'state', 'state': 'playing'});
+    await pumpEventQueue();
+    expect(
+        states, [PlayerState.playing, PlayerState.paused, PlayerState.playing]);
+    expect(player.state, PlayerState.playing);
+  });
+
+  test('native error events surface as stream errors', () async {
+    final player = await createPlayer();
+    final errors = <Object>[];
+    player.onStateChanged.listen((_) {}, onError: errors.add);
+    eventSink!.success({'event': 'error', 'message': 'route change failed'});
+    await pumpEventQueue();
+    expect(errors, hasLength(1));
+    final error = errors.single as PlatformException;
+    expect(error.code, 'audio_stream_player');
+    expect(error.message, 'route change failed');
+  });
+
+  test('play surfaces a denied audio focus request', () async {
+    final player = await createPlayer();
+    messenger.setMockMethodCallHandler(AudioStreamPlayer.methodChannel,
+        (call) async {
+      if (call.method == 'play') {
+        throw PlatformException(code: 'audio_focus_denied');
+      }
+      return null;
+    });
+    await expectLater(
+      player.play(),
+      throwsA(isA<PlatformException>()
+          .having((e) => e.code, 'code', 'audio_focus_denied')),
+    );
   });
 
   test('underrun events reach the stream', () async {
